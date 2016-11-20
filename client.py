@@ -1,9 +1,10 @@
 import socket
+import sys
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect(("10.62.0.213",8000))
-currentChatroom = None 
-joinID = None
+chatrooms = []
+JoinIDs = []
 
 def joinChatroom(chatname,username):
 	message = "JOIN_CHATROOM: %s\nCLIENT_IP: 0\nPORT: 0\nCLIENT_NAME: %s" %(chatname,username);
@@ -14,12 +15,21 @@ def joinChatroom(chatname,username):
 		exit()
 	else:
 		print data
-		messageContents = data.split("\n")
-		currentChatroom = messageContents[0]
-		joinID= messageContents[4]
 
-def leaveChatroom(chatname,username):
-	roomID = search(chatroomNames, chatname)
+def leaveChatroom(chatname,username,roomID):
 	message = "LEAVE_CHATROOM: %d\nJOIN_ID: %d\nCLIENT_NAME: %s" %(roomID,joinID,username);
 	sock.send(message)
 	data = conn.recv(1024)
+	print data
+ 
+def message(roomID, joinID, username, message):
+	message = "CHAT: %d\n JOIN_ID: %d\nCLIENT_NAME: %s\n MESSAGE: %s\n\n" %(roomID, joinID, username, message);
+	sock.send(message)
+
+def disconnect(username):
+	message = "DISCONNECT: 0\n PORT: 0\nCLIENT_NAME: %s" %(username);
+	sock.send(message)
+
+for string in sys.arg[1:]:
+	print string
+#joinChatroom(sys.arg[1), sys.arg[2])
