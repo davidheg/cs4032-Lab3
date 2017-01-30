@@ -8,12 +8,13 @@ max = 10
 address = "10.62.0.213"
 port = 8000
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-threadpool = []
-numberofThreads = 0
-chatnames= []
-usersInChats = [[]]
-messages = []
-clients = []
+threadpool = [] #All the client threads being used
+chatThreads = []
+numberofThreads = 0 #The number of client threads
+chatnames= []  #List of chatsnames, sorted by their reference number
+usersInChats = [[]] # List of lists of all the users in each chat, sorted by chatroom reference no
+messages = [[[]]] # List of lists of messages to send to each chat, by room reference
+clients = [] #List of clients currently connected to the server
 
 def sortThreadPool():
     i = 0
@@ -29,24 +30,31 @@ def removeUserFromChatroom(roomref, joinID):
     for user in usersInChats[roomref]:
         if user == joinID:
             user = None
-            #Add message to queue stating user has left chat
-    filter(None, usersInChats[roomref])
+            message = "User %s has left the91 chatroom" %(clients[joinID])
+            sendMessage(roomref, joinID, message)
+            filter(None, usersInChats[roomref])
+            return
 
 def addUserToChatroom(roomref, joinID):
     usersInChats[roomref].append(joinID)
-    #Add message to queue stating user has joined chat
+    sendMessage(roomref,joinID,message)
 
 def createChatroom(name):
-    chatname.append(name)
-    chatname.append([])
+    chatnames.append(name)
+    roomref = findChatroom(name)
+    chatThreads.append(threading.Thread(target = handleChat, args =(roomref,)))
 
 def leaveChatroom(conn,data):
-        messageContents = data.split("\n")
-        i = messageContents[0].split(" ")[1]
-        if chats[i] == None:
-            conn.send(" ERROR_CODE: 2 \nERROR_DESCRIPTION: Chatroom does not exist")
-        else:
-                
+    messageContents = data.split("\n")
+    chatroom = messageContents[0].split(" ")[1]
+    joinID = messageContents[1].split(" ")[1]
+    clientName = messageContents[2].split(" ")[1]
+    if chats[chatroom] == None:
+        conn.send("ERROR_CODE: 2 \nERROR_DESCRIPTION: Chatroom does not exist")
+    else:
+        removeUserFromChatroom(chatroom, joinID)
+        message = "LEFT_CHATROOM: %s\nJOIN_ID: %s" %(chatroom, joinID);   
+        conn.send(message)
 
 def findChatroom(name):
     i = 0
@@ -58,18 +66,36 @@ def findChatroom(name):
 
 def joinChatroom(conn,data):
     messageContents = data.split("\n")
-    i = findChatroom(messageContents[0].split(" ")[1])
+    chatroom = messageContents[0].split(" ")[1]
+    clientName = messageContents[3].split(" ")[1]
+    i = findChatroom(chatroom)
     if i == -1:
-        createChatroom(messageContents[0].split(" ")[1])
-        i = findChatroom(messageContents[0].split(" ")[1])
+        createChatroom(chatroom)
+        i = findChatroom(chatroom)
     id = len(clients) + 1
     addUserToChatroom(i,id)
-    message = "JOINED_CHATROOM: %s\nSERVER_IP: 0\nPORT: 0\nROOM_REF: %s\n JOIN_ID: %s" %(messageContents[0].split(" ")[1],i,id);
+    message = "JOINED_CHATROOM: %s\nSERVER_IP: 0\nPORT: 0\nROOM_REF: %s\n JOIN_ID: %s" %(chatroom,i,id);
     conn.send(message)
     #Send error message if already in chatroom
 
-def sendMessage(data):
-   
+def sendMessage(roomref, joinID, message):
+    message = [roomref,joinID,message]
+    messages[roomref].append(message)
+    return   
+
+def handleChat(roomref):
+    chatMessages = messages[roomref]
+    while true:
+        for message in chatMessages:
+            userID = message[0]
+            string = message[1]
+            userMessage = "CHAT: %s\nCLIENT_NAME: %s\nMESSAGE: %s\n\n" %(roomref,clients[roomref],string)
+            for users in usersInChats[roomref]:
+                if user != userID:
+                    conn = getConnection(user)
+                    conn.send(userMessage)
+            message = None
+        fliter(None,chatMessages)
 
 def handleClient(conn,addr):
     receiving = True
