@@ -2,14 +2,14 @@ import socket
 import sys
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(("10.62.0.213",8000))
+sock.connect(("192.168.60.128",8000))
 chatrooms = []
 JoinIDs = []
 
 def joinChatroom(chatname,username):
 	message = "JOIN_CHATROOM: %s\nCLIENT_IP: 0\nPORT: 0\nCLIENT_NAME: %s" %(chatname,username);
 	sock.send(message)
-	data = conn.recv(1024)
+	data = sock.recv(1024)
 	if "ERROR" in data:
 		print data
 		exit()
@@ -30,6 +30,4 @@ def disconnect(username):
 	message = "DISCONNECT: 0\n PORT: 0\nCLIENT_NAME: %s" %(username);
 	sock.send(message)
 
-for string in sys.arg[1:]:
-	print string
-#joinChatroom(sys.arg[1), sys.arg[2])
+joinChatroom("Avengers", "davidheg")

@@ -5,7 +5,7 @@ import sys
 
 run = True
 max = 10
-address = "10.62.0.213"
+address = "192.168.60.128"
 port = 8000
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 threadpool = [] #All the client threads being used
@@ -14,35 +14,39 @@ numberofThreads = 0 #The number of client threads
 chatnames= []  #List of chatsnames, sorted by their reference number
 usersInChats = [[]] # List of lists of all the users in each chat, sorted by chatroom reference no
 messages = [[[]]] # List of lists of messages to send to each chat, by room reference
-clients = [] #List of clients currently connected to the server
+clients = [[]] #List of clients currently connected to the server
 
 def sortThreadPool():
-    i = 0
-    for thread in threadpool:
-        if(not thread.isAlive()):
-            threadpool.pop(i)
-            global numberofThreads
-            numberofThreads = numberofThreads - 1
-            i = i + 1
-    threadpool.sort()
+    while True:
+        i = 0
+        for thread in threadpool:
+            if(not thread.isAlive()):
+                threadpool.pop(i)
+                global numberofThreads
+                numberofThreads = numberofThreads - 1
+                i = i + 1
+        threadpool.sort()
 
 def removeUserFromChatroom(roomref, joinID):
-    for user in usersInChats[roomref]:
-        if user == joinID:
-            user = None
-            message = "User %s has left the91 chatroom" %(clients[joinID])
-            sendMessage(roomref, joinID, message)
-            filter(None, usersInChats[roomref])
-            return
+    usersInChats[roomref][joinID] = None
+    message = "User %s has left the chatroom" %(clients[joinID])
+    sendMessage(roomref, joinID, message)
+    filter(None, usersInChats[roomref])
+    return
 
-def addUserToChatroom(roomref, joinID):
-    usersInChats[roomref].append(joinID)
-    sendMessage(roomref,joinID,message)
+def addUserToChatroom(roomref, clientName):
+    id = len(usersInChats[roomref]) + 1
+    print "UserID %d" %(id)
+    usersInChats[roomref].insert(id,clientName)
+    message = "User %s has joined the chatroom" %(clientName)
+    sendMessage(roomref,id,message)
+    return id
 
 def createChatroom(name):
     chatnames.append(name)
     roomref = findChatroom(name)
-    chatThreads.append(threading.Thread(target = handleChat, args =(roomref,)))
+    usersInChats.insert(roomref, [])
+    chatThreads.insert(roomref, (threading.Thread(target = handleChat, args =(roomref,))))   
 
 def leaveChatroom(conn,data):
     messageContents = data.split("\n")
@@ -72,10 +76,13 @@ def joinChatroom(conn,data):
     if i == -1:
         createChatroom(chatroom)
         i = findChatroom(chatroom)
-    id = len(clients) + 1
-    addUserToChatroom(i,id)
+    id = addUserToChatroom(i,clientName)
     message = "JOINED_CHATROOM: %s\nSERVER_IP: 0\nPORT: 0\nROOM_REF: %s\n JOIN_ID: %s" %(chatroom,i,id);
     conn.send(message)
+    if not getUserAddress(clientName):
+        clients.append([clientName, conn])
+        print clients
+
     #Send error message if already in chatroom
 
 def sendMessage(roomref, joinID, message):
@@ -89,11 +96,9 @@ def handleChat(roomref):
         for message in chatMessages:
             userID = message[0]
             string = message[1]
-            userMessage = "CHAT: %s\nCLIENT_NAME: %s\nMESSAGE: %s\n\n" %(roomref,clients[roomref],string)
-            for users in usersInChats[roomref]:
-                if user != userID:
-                    conn = getConnection(user)
-                    conn.send(userMessage)
+            userMessage = "CHAT: %s\nCLIENT_NAME: %s\nMESSAGE: %s\n\n" %(roomref,clients[roomref],string)            
+            conn = getUserAddress(usersInChats[roomref][userID])
+            conn.send(userMessage)
             message = None
         fliter(None,chatMessages)
 
@@ -111,9 +116,20 @@ def handleClient(conn,addr):
         elif "MESSAGE" in data:
             sendMessage(conn,data)
 
+def getUserAddress(username):
+    for user in clients:
+        if user:
+            if user[0] == username:
+                return user
+    return []
+
+def getUserInfo(roomref, joinID):
+    return usersInChats[roomref][joinID]
+
 sock.bind((address,port))
 print "Socket created at IP:%s and port:%d, now listening for clients" %(address,port)
 sock.listen(5)
+threading.Thread(target = sortThreadPool).start()
 while run:
     print numberofThreads
     if numberofThreads < max:
@@ -124,4 +140,3 @@ while run:
         numberofThreads = numberofThreads + 1
     else:
         print "There are no free threads"
-    threading.Thread(target = sortThreadPool).start()
