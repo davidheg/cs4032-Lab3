@@ -31,6 +31,5 @@ def receive():
 		print data
 
 threading.Thread(target = receive).start()
-joinChatroom("room1", "client1")
-time.sleep(5)
-leaveChatroom(1,1,"client1")
+joinChatroom("room1", "client2")
+time.sleep(15)
